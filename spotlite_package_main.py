@@ -19,15 +19,13 @@ from dateutil.relativedelta import relativedelta
 from PIL import ImageFont
 import pandas as pd
 import geopandas as gpd
+import folium
 from geopy.geocoders import Nominatim
 import re
-from spotlite import Spotlite, TaskingManager
-# from subscriptionUtils import load_subscriptions, list_subscriptions, add_subscription, delete_subscription
+from spotlite import Spotlite
 
 # application imports
 import config
-# from satellogicUtils import get_lat_long_from_place, ensure_dir
-from satellogicTaskingAPI import gather_task_inputs
 
 def get_lat_long_from_place(place):
     # The regex below matches a pattern like '-34.2355, 19.2157'
@@ -385,6 +383,119 @@ def main():
         else:
             print("Invalid choice. Please try again.")
             continue
+
+
+
+def map_desired_tasking_location(lat, lon):
+    # Create map and add task location
+    mp = folium.Map(location=[lat, lon], tiles="CartoDB dark_matter", zoom_start=13)
+    folium.Marker([lat, lon]).add_to(mp)
+
+    # Save the map to an HTML file
+    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    map_filename = f'images/Tasking_Map_{now}.html'
+    os.makedirs(os.path.dirname(map_filename), exist_ok=True)
+    mp.save(map_filename)
+
+    # Open the HTML file in the default web browser
+    webbrowser.open('file://' + os.path.realpath(map_filename))
+
+def validate_date_range(date_range_str):
+    try:
+        # Split the date_range_str into start_date_str and end_date_str
+        start_date_str, end_date_str = date_range_str.split()
+
+        # Parse the date strings into datetime objects
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%dT%H:%M:%SZ')
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%dT%H:%M:%SZ')
+
+        # Check that the start date is before the end date
+        if start_date >= end_date:
+            print("Start date must be before end date.")
+            return False
+        return True
+    except ValueError as ve:
+        print(f"Invalid date format: {ve}")
+        return False
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return False
+
+def validate_coordinates(value):
+    try:
+        float_value = float(value)
+        return -180 <= float_value <= 180
+    except ValueError:
+        return False
+
+def validate_expected_age(value):
+    pattern = re.compile(r"(\d+ days, \d{2}:\d{2}:\d{2})")
+    return bool(pattern.match(value))
+
+def validate_date(value):
+    try:
+        datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ')
+        return True
+    except ValueError:
+        return False
+
+
+def get_input(prompt, validation_func=None, default_value=None):
+    while True:
+        user_input = input(prompt + f" (Default: {default_value}): ") or default_value
+        if validation_func and not validation_func(user_input):
+            print("Invalid input, please try again.")
+        else:
+            return user_input
+
+def gather_task_inputs():
+    # Gather inputs from the user or allow for defaults
+    now = datetime.now().strftime('%Y%m%d_%H%M%S')
+    project_name = get_input("Enter the project name:", default_value=f"API_Testing")
+    task_name = get_input("Enter the task name:", default_value=f"API_Task_{now}")
+
+    product = int(get_input("Enter the product number (169):", validation_func=lambda x: x.isdigit(), default_value="169"))
+    max_captures = int(get_input("Enter the maximum number of captures (1):", validation_func=lambda x: x.isdigit(), default_value="1"))
+    expected_age = get_input("Enter the expected age (7 days, 00:00:00):", validation_func=validate_expected_age, default_value="7 days, 00:00:00")
+
+    print("Enter the target coordinates (lat/long, dec deg):")
+    lat_lon = input("Enter the latitude and longitude (format: lat,lon): ")
+    lat, lon = map(float, lat_lon.split(','))  # This will split the input string into lat and lon, and convert them to floats
+
+    now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')  # Get the current UTC date and time in the desired format
+    one_month_later = (datetime.utcnow() + relativedelta(months=1)).strftime('%Y-%m-%dT%H:%M:%SZ')  # Get the date and time one month later in the desired format
+
+    # start_date = get_input("Enter the capture window start(YYYY-MM-DDThh:mm:ssZ):", validation_func=validate_date, default_value=now)
+    # end_date = get_input("Enter the capture window end (YYYY-MM-DDThh:mm:ssZ):", validation_func=validate_date, default_value=one_month_later)
+
+    # Set a default date range
+    default_date_range = f"{now} {one_month_later}"
+
+    date_input = get_input(
+        f"Enter the capture window start and end (format: {default_date_range}):",
+        validation_func=validate_date_range,  # You'll need to define this function
+        default_value=default_date_range
+    )
+
+    # Split the input into start and end dates
+    start_date, end_date = date_input.split()
+
+    task = {
+        "project_name": project_name,
+        "task_name": task_name,
+        "product": product,
+        "max_captures": max_captures,
+        "expected_age": expected_age,
+        "target": {
+            "type": "Point",
+            "coordinates": [lon, lat]
+        },
+        "start": start_date,
+        "end": end_date
+    }
+    print(task)
+    map_desired_tasking_location(lat, lon)
+    return task
 
 if __name__ == "__main__":
     main()
