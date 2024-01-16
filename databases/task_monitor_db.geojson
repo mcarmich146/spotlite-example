@@ -1,0 +1,15 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "task_id": 161679,
+                "task_name": "Lahaina",
+                "project_name": "Wildfires",
+                "status": "completed"
+            },
+            "geometry": null
+        }
+    ]
+}

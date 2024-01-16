@@ -1,10 +1,10 @@
-# spotlite - Satellogic Imagery Discovery and Access Demonstration Tool
+# spotlite-example - Example code showing how to use Satellogic "spotlite" package to interact with the Archive API.
 
 ## PURPOSE:
 This app is intended to exercise the API in a demo centric way
 that allows the user to follow their predicted user CONOPS lifecycle (below).
 
-Life Cycle Steps (based on the [TCPED](https://www.dhs.gov/sites/default/files/publications/FactSheet%20TCPED%20Process%20Analysis%202016.12.12%20FINAL_1_0.pdf) life cycle):
+The inspiration for this package came from the Life Cycle Steps (based on the [TCPED](https://www.dhs.gov/sites/default/files/publications/FactSheet%20TCPED%20Process%20Analysis%202016.12.12%20FINAL_1_0.pdf) life cycle):
 1. User enters place name or lat/long for search
 2. Search the archive for tiles and visualize them.
 3. Access the full resolution Rapid Response products
@@ -22,15 +22,16 @@ The main functions provided in the spotlite_main.py are captured below.
 The menus are:
 
 Options:
-1. Search And Animate Site
-2. Search And Plot Images With Thumbnails.
-3. Create Cloud Free Basemap.
-4. Create Heat Map Of AOI For Collection Age.
-5. Create Heatmap Of Imagery Depth.
-6. Download Tiles For BBox
-7. Manage Subscriptions
-8. Enter New Tasking
-9. q for Quit...
+    1. Search And Animate Site.
+    2. Create Cloud Free Basemap.
+    3. Create Heatmap Of Collection Age.
+    4. Create Heatmap Of Imagery Depth.
+    5. Create Heatmap Of Cloud Cover.
+    6. Download Tiles For BBox.
+    7. Run Subscription Monitor.
+    8. Dump Footprints.
+    8. Satellite Tasking Menu.
+    q. For Quit...
 
 ## INSTALLATION
 
@@ -64,48 +65,40 @@ Conda is required.  Ensure it is installed on your machine, then perform the fol
 conda env create -f envionment.yaml
 ```
 
-## HOW TO RUN APPLICATION
+### Install Spotlite
 
-Then you should be able to run the app.
+You can use pip to install the Spotlite distribution.
 
 ```bash
-python ./spotlite_main.py
+pip install spotlite
+```
+
+## HOW TO RUN APPLICATION
+
+Then you can run the app menu.
+
+```bash
+python ./spotlite_package_main.py
 ```
 
 You follow the prompts from there.  Some functions are more mature than others.
-Search and Animate Site, Create Heatmaps, Download Tiles are my favorite.
-For example Create Cloud Free Basemap seems to be a good idea but no workable in practice.
+Search and Animate Site, Create Heatmaps, Download Tiles and Dump Footprints are my favorite.
 
-Other services in this app that need to be started and left running in your terminal
+Other services in this app that need to be started and left running in your terminal for them
+to work for you in the background.
 
-```bash
-python ./indicationsAndWarningsSrvc.py
-```
+Capture Subscription Monitoring Service - This service runs in the background and searches on a periodic basis for imagery captured in 
+the last period and creates an email notification with map of the images so you can find the new imagery and copy paste references to the images by clicking on the markers and copying the text from the popup.  Use the option: 7. Run Subscription Monitor.
 
-Searches ~500 POI that were marked and validated for new imagery that comes in during the last period.  It runs a search, creates animation of time series, before and after image
-
-```bash
-python ./monitoringSrvc.py
-```
-
-This is managed in the main menu where you can create new monitoring areas to listen for imagery
-
-For example "I want to be notified when new imagery arrives over Gaza".  You need to do more work to set this up though!  It sends an email using gmail, but you will need to use the Google Developer Console to set that up to get the credentials file.
-
-```bash
-python ./imageDepthAgeSrvc.py
-```
-
-This runs periodically to rebuild plots for imagery depth and count.
 ## config.py file contents
 
-Place at root dir.
+Place at root dir and replace the KEY_ID and KEY_SECRET with your credentials obtained from Satellogic.
 
 ```bash
 # Define your configurations here, for example:
 INTERNAL_STAC_API_URL = "GetFromSatellogic"
 STAC_API_URL = "https://api.satellogic.com/archive/stac"
-SUBSCRIPTIONS_FILE_PATH = 'points_to_monitor/subscriptions.geojson'
+SUBSCRIPTIONS_FILE_PATH = 'databases/subscriptions.geojson'
 SUBC_MON_FREQUENCY = 120 # Minutes between subscription monitor runs.
 MAP_UPDATE_FREQUENCY = 360 # Minutes between updates aka 24 hours.
 CLOUD_THRESHOLD = 30 # Will reject captures with 20% or more CC when animating.

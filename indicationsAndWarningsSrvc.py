@@ -188,9 +188,10 @@ def check_and_notify_points():
             
             # Capture data for the email.
             if num_tiles > 0:
-                for (capture_date, outcome_id), group in grouped_items_GPDF:
+                for outcome_id, group in grouped_items_GPDF:
                     cloud_cover_mean = None
                     cloud_cover_mean = group["eo:cloud_cover"].mean()
+                    capture_date = group.iloc[0]['capture_date']
                     center = aoi.centroid
                     lat_long = (center.y, center.x)  # Assuming 'lat' and 'lon' are keys in your AOI
                     

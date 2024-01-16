@@ -8,6 +8,7 @@
 # standard library imports
 from datetime import datetime
 from pathlib import Path
+import os
 
 # third-party imports
 import webbrowser
@@ -16,13 +17,31 @@ from tkinter import filedialog
 import logging
 from dateutil.relativedelta import relativedelta
 from PIL import ImageFont
+import pandas as pd
 import geopandas as gpd
-from spotlite import Searcher, Visualizer, TaskingManager
+from geopy.geocoders import Nominatim
+import re
+from spotlite import Spotlite, TaskingManager
+# from subscriptionUtils import load_subscriptions, list_subscriptions, add_subscription, delete_subscription
 
 # application imports
 import config
-from satellogicUtils import get_lat_long_from_place, ensure_dir
+# from satellogicUtils import get_lat_long_from_place, ensure_dir
 from satellogicTaskingAPI import gather_task_inputs
+
+def get_lat_long_from_place(place):
+    # The regex below matches a pattern like '-34.2355, 19.2157'
+    lat_long_pattern = re.compile(r'^-?\d+\.\d+,\s*-?\d+\.\d+$')
+    if lat_long_pattern.match(place):
+        # If the input matches the lat-long pattern, split it into lat and long
+        lat, lon = map(float, place.split(','))
+        return lat, lon
+    else:
+        geolocator = Nominatim(user_agent="ZXCVBGFDSAaasdfg12413415")
+        location = geolocator.geocode(place)
+        lat, lon = location.latitude, location.longitude
+
+    return lat, lon
 
 def _get_font() -> ImageFont:
     """Returns either a specified font or falls back to the default font."""
@@ -45,6 +64,10 @@ def _get_font() -> ImageFont:
 
     return font
 
+def ensure_dir(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
 def main():
     # Make Sure All The Directories Are Present
     ensure_dir("log")
@@ -64,21 +87,20 @@ def main():
 
     place = ""
 
-    searcher = Searcher(config.KEY_ID, config.KEY_SECRET)
-    visualizer = Visualizer()
-    tasker = TaskingManager(config.KEY_ID, config.KEY_SECRET)
+    # print(f"Keys: {config.KEY_ID}, {config.KEY_SECRET}")
+    spotlite = Spotlite(config.KEY_ID, config.KEY_SECRET)
 
     while True:
-        print("Options:")
+        print("\nOptions:")
         print("1. Search And Animate Site.")
-        print("2. Search And Plot Images With Thumbnails.")
-        print("3. Create Cloud Free Basemap.")
-        print("4. Create Heatmap Of Collection Age.")
-        print("5. Create Heatmap Of Imagery Depth.")
-        print("6. Create Heatmap Of Cloud Cover.")
-        # print("7. Deleted - Subscriptions.")
-        print("8. Enter New Tasking.")
-        print("9. Download Tiles For BBox.")
+        print("2. Create Cloud Free Basemap.")
+        print("3. Create Heatmap Of Collection Age.")
+        print("4. Create Heatmap Of Imagery Depth.")
+        print("5. Create Heatmap Of Cloud Cover.")
+        print("6. Download Tiles For BBox.")
+        print("7. Run Subscription Monitor.")
+        print("8. Dump Footprints.")
+        print("9. Satellite Tasking Menu.")
         print("q. For Quit...")
 
         user_choice = input("Enter your choice: ")
@@ -119,53 +141,11 @@ def main():
             end_date = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
             logging.info(f"Date Range For Search: {start_date} - {end_date}")
 
-            # For the list of points create a map with all of the points and bounding boxes on it.
-            aois_list, points_list = searcher.create_aois_from_points(points, width)
-            master_map = visualizer.create_folium_map(points_list, aois_list)
-            fig_obj = visualizer.create_choropleth_map(aois_list)
-
-            # Loop through the bbox aois and search and append the results to the map.
-            logging.info(f"Number of AOIs: {len(aois_list)}.")
             save_and_animate = input("Save and Animate (y/n)?: ").lower() or "y" # apply this to every aoi.
-            animation_filename = ""
-            for index, aoi in enumerate(aois_list):
-                logging.info(f"Processing AOI #: {index+1}")
-                tiles_gdf, num_tiles, num_captures = searcher.search_archive(aoi, start_date, end_date)
+            spotlite.create_tile_stack_animation(points, width, start_date, end_date, save_and_animate)
 
-                if num_tiles >0:
-                    if 'eo:cloud_cover' not in tiles_gdf.columns:
-                        logging.warning(f"Column 'eo:cloud_cover' doesn't exist for this AOI, skipping.")
-                        continue
-                    else:
-
-                        # We want to save the tiles into their respective captures to then animate them.
-                        logging.warning(f"Found Total Captures: {num_captures}, Total Tiles: {num_tiles}.")
-
-                        # get the font with local helper function because it depends on config
-                        font = _get_font()
-                        # Save and animate the image capture tiles
-                        if save_and_animate == 'y':
-                            # Save and animate the tiles
-                            result = visualizer.animate_tile_stack(tiles_gdf, aoi, font)
-
-                            # Check for valid result before proceeding
-                            if result:
-                                animation_filename, fnames = result
-                            else:
-                                animation_filename = ""
-                                logging.warning("Animation not created. Skipping...")
-                                continue
-
-                        master_map = visualizer.update_map_with_tiles(master_map, tiles_gdf, animation_filename, aoi)
-                        # fig_obj = visualizer.cloud_heatmap(tiles_gdf, fig_obj)
-
-            if master_map:
-                master_map_filename = f"maps/Search_Results_Map_{now.strftime('%Y-%m-%d_%H-%M-%S')}.html"
-                master_map.save(master_map_filename)  # Save the master_map to a file
-                # webbrowser.open(master_map_filename)  # Open the saved file in the browser
-
-        elif user_choice == '2': # Search and Plot Images With Thumbnail.
-            logging.warning("Searching and Plotting Images With Browse Images.")
+        elif user_choice == '2': # Create Cloud Free Tile Basemap - Works but seem like non-sense?
+            logging.warning("Create Cloud Free Tile Basemap.")
             # Open the file dialog to select the GeoJSON file
             logging.warning("Provide geojson polygon file.")
             root = tk.Tk()
@@ -173,9 +153,9 @@ def main():
             geojson_filepath = filedialog.askopenfilename(title="Select GeoJSON file",
                                                         filetypes=[("GeoJSON files", "*.geojson")])
             if geojson_filepath:
-                logging.info(f"GeoJSON polygon file selected: {geojson_filepath}")
-                input_gdf = gpd.read_file(geojson_filepath)
-                heatmap_aoi = input_gdf.iloc[0].geometry.__geo_interface__
+                logging.info(f"GeoJSON file selected: {geojson_filepath}")
+                tiles_gdf = gpd.read_file(geojson_filepath)
+                search_aoi = tiles_gdf.iloc[0].geometry.__geo_interface__
             else:
                 logging.warning("No geojson file!")
                 break
@@ -186,91 +166,13 @@ def main():
             one_month_ago = now - relativedelta(months=1)
             end_date_str = now.strftime('%Y-%m-%d')
             one_month_ago_str = one_month_ago.strftime('%Y-%m-%d')
-            search_start_date = input("Enter start date (YYYY-MM-DD) or press enter for 1 month ago: ") or one_month_ago_str
-            search_end_date = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
-            logging.warning(f"Date Range For Search: {search_start_date} - {search_end_date}")
+            search_start_date_str = input("Enter start date (YYYY-MM-DD) or press enter for 1 month ago: ") or one_month_ago_str
+            search_end_date_str = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
+            logging.warning(f"Date Range For Search: {search_start_date_str} - {search_end_date_str}")
 
-            # Search The Archive
-            tiles_gdf, num_tiles, num_captures = searcher.search_archive(heatmap_aoi, search_start_date, search_end_date)
+            spotlite.create_cloud_free_basemap(search_aoi, search_start_date_str, search_end_date_str)
 
-            logging.warning(f"Search complete! Num Tiles: {num_tiles}, Num Captures: {num_captures}")
-
-            if num_tiles > 0:
-                # Sort by capture date
-                tiles_gdf.sort_values('capture_date', ascending=False, inplace=True)
-
-                folium_basemap = visualizer.create_folium_basemap(tiles_gdf)
-
-                now = datetime.now().strftime("%Y-%m-%dT%H%M%SZ")
-                filename = f'maps/Basemap_{now}.html'
-                folium_basemap.save(filename)
-
-                logging.warning(f"Basemap Created With Latest Cloud Free Tiles And Saved To Maps Folder.")
-            else:
-                logging.warning("No tiles found!")
-                continue
-
-            continue
-        elif user_choice == '8': # Manage Taskings.
-            while True:
-                print("Manage Taskings:")
-                print("1. Create New Tasking Via API") # Validated
-                print("2. Check Status For TaskID ") # Validated
-                print("3. Cancel Task For TaskID") # Validated
-                print("4. Query and Download Image For ScenesetID") #Validated
-                print("5. Check Client Config.") # Validated
-                print("6. Search Products By Status.") # Validated
-                print("7. Check Available Product List.") #Validated
-                print("8. List Captures For TaskID.") #Validated
-                print("q. Back to main menu.")
-                sub_choice = input("Enter your choice: ")
-
-                if sub_choice == '1':  # Create new tasking via API
-
-                    task_params = gather_task_inputs()
-
-                    tasking_df = tasker.create_new_tasking(task_params)
-                    print(f"Tasking Result: {tasking_df}")
-                    continue
-                elif sub_choice == '2': # Check status of task
-                    task_id = input("Enter Task Id: ")
-                    print(f"Status: {tasker.task_status(task_id)}")
-                    continue
-                elif sub_choice == '3': # cancel_task
-                    task_id = input("Enter Task Id: ")
-                    print(f"Status: {tasker.cancel_task(task_id)}")
-                    continue
-                elif sub_choice == '4': # query_and_download_image
-                    scene_set_id = input("Enter SceneSetID?: ")
-                    download_dir = input("Target Relative Download Directory? (images):") or None
-                    print(f"Downloaded Image Filename: {tasker.download_image(scene_set_id, download_dir)}")
-                    continue
-                elif sub_choice == '5': # Check Client Config
-                    print(f"Client Config: {tasker.check_account_config()}")
-                elif sub_choice == '6': # Search products by status.
-                    status = input("Provide Status To Query [ALL]: ") or ""
-                    df = tasker.query_tasks_by_status(status)
-                    print(f"Product Columns: {df.columns}")
-                    print(f"Products Result: {df}")
-                elif sub_choice == '7': # Check available products list.
-                    df = tasker.query_available_tasking_products()
-                    print(f"Availble Products: \n{df}")
-                elif sub_choice == '8': # Check captures for task_id
-                    task_id = input("Provide task_id: ")
-                    if task_id:
-                        response_json = tasker.capture_list(task_id)
-                        if response_json is not None and 'capture_id' in response_json.columns:
-                            for idx, row in response_json.iterrows():
-                                print(f"Capture ID: {row['capture_id']}, Start: {row['start']}, Satellite: {row['satellite_name']}, Status: {row['status']}")
-                        else:
-                            print("No results found or error in API call.")
-                    continue
-                elif sub_choice == 'q': # Return to main menu
-                    break
-                else:
-                    print("Invalid Choice.")
-                    continue
-        elif user_choice == '4': # Create heatmap of imagery age.
+        elif user_choice == '3': # Create heatmap of imagery age.
             # Open the file dialog to select the GeoJSON file
             print("Provide geojson polygon file.")
             root = tk.Tk()
@@ -280,7 +182,7 @@ def main():
             if geojson_filepath:
                 logging.info(f"GeoJSON file selected: {geojson_filepath}")
                 tiles_gdf = gpd.read_file(geojson_filepath)
-                heatmap_aoi = tiles_gdf.iloc[0].geometry.__geo_interface__
+                search_aoi = tiles_gdf.iloc[0].geometry.__geo_interface__
             else:
                 logging.warning("No geojson file!")
                 break
@@ -291,23 +193,71 @@ def main():
             one_month_ago = now - relativedelta(months=1)
             end_date_str = now.strftime('%Y-%m-%d')
             one_month_ago_str = one_month_ago.strftime('%Y-%m-%d')
-            search_start_date = input("Enter start date (YYYY-MM-DD) or press enter for 1 month ago: ") or one_month_ago_str
-            search_end_date = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
-            logging.warning(f"Date Range For Search: {search_start_date} - {search_end_date}")
+            search_start_date_str = input("Enter start date (YYYY-MM-DD) or press enter for 1 month ago: ") or one_month_ago_str
+            search_end_date_str = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
+            logging.warning(f"Date Range For Search: {search_start_date_str} - {search_end_date_str}")
 
-            tiles_gdf, num_tiles, num_captures = searcher.search_archive(heatmap_aoi, search_start_date, search_end_date)
+            spotlite.create_age_heatmap(search_aoi, search_start_date_str, search_end_date_str)
 
-            logging.warning(f"Search complete! Num Tiles: {num_tiles}, Num Captures: {num_captures}")
-            if num_tiles > 0:
-                # Sort by age so that youngest tiles are last (and thus displayed on top)
-                hmap = visualizer.age_heatmap(tiles_gdf, out_filename=None)
-
-                logging.warning("Heat Map Complete: maps folder...")
+        elif user_choice == '4': # Create Heatmap for Stack Depth
+            logging.warning("Create Heatmap Of Depth Of Stack.")
+            # Open the file dialog to select the GeoJSON file
+            logging.warning("Provide geojson polygon file.")
+            root = tk.Tk()
+            root.withdraw()
+            geojson_filepath = filedialog.askopenfilename(title="Select GeoJSON file",
+                                                        filetypes=[("GeoJSON files", "*.geojson")])
+            if geojson_filepath:
+                logging.info(f"GeoJSON file selected: {geojson_filepath}")
+                tiles_gdf = gpd.read_file(geojson_filepath)
+                search_aoi = tiles_gdf.iloc[0].geometry.__geo_interface__
             else:
-                logging.warning("No tiles found!")
-                continue
+                logging.warning("No geojson file!")
+                break
 
-        elif user_choice == '9': # Download Tiles For BBox
+            # Format the dates to string (YYYY-MM-DD)
+            # Get the current date and calculate the date one month prior
+            now = datetime.utcnow()
+            one_month_ago = now - relativedelta(months=1)
+            end_date_str = now.strftime('%Y-%m-%d')
+            one_month_ago_str = one_month_ago.strftime('%Y-%m-%d')
+            search_start_date_str = input("Enter start date (YYYY-MM-DD) or press enter for 1 month ago: ") or one_month_ago_str
+            search_end_date_str = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
+            logging.warning(f"Date Range For Search: {search_start_date_str} - {search_end_date_str}")
+
+            spotlite.create_count_heatmap(search_aoi, search_start_date_str, search_end_date_str)
+
+        elif user_choice == '5': # Create for heat map for cloud cover for latest tiles.
+            # Open the file dialog to select the GeoJSON file
+            print("Provide geojson polygon file.")
+            root = tk.Tk()
+            root.withdraw()
+            geojson_filepath = filedialog.askopenfilename(title="Select GeoJSON file",
+                                                        filetypes=[("GeoJSON files", "*.geojson")])
+            if geojson_filepath:
+                logging.info(f"GeoJSON file selected: {geojson_filepath}")
+                input_gdf = gpd.read_file(geojson_filepath)
+                search_aoi = input_gdf.iloc[0].geometry.__geo_interface__
+            else:
+                logging.warning("No geojson file!")
+                break
+
+            # Format the dates to string (YYYY-MM-DD)
+            # Get the current date and calculate the date one month prior
+            now = datetime.utcnow()
+            one_month_ago = now - relativedelta(months=1)
+            end_date_str = now.strftime('%Y-%m-%d')
+            one_month_ago_str = one_month_ago.strftime('%Y-%m-%d')
+            search_start_date_str = input("Enter start date (YYYY-MM-DD) or press enter for 1 month ago: ") or one_month_ago_str
+            search_end_date_str = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
+            logging.warning(f"Date Range For Search: {search_start_date_str} - {search_end_date_str}")
+
+            spotlite.create_cloud_heatmap(search_aoi, search_start_date_str, search_end_date_str)
+
+            continue
+        
+        
+        elif user_choice == '6': # Download Tiles For BBox
             place = input(f"Enter the place name or lat,lon in dec. deg.: ")
             lat, lon = get_lat_long_from_place(place)
             points = [{'lat': lat, 'lon': lon}]
@@ -327,113 +277,13 @@ def main():
             end_date = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
             logging.info(f"Date Range For Search: {start_date} - {end_date}")
 
-            # Create aois_list
-            aois_list, points_list = searcher.create_aois_from_points(points, width)
-
-            # Loop through the bbox aois and search and append the results to the map.
-            logging.info(f"Number of AOIs Entered: {len(aois_list)}.")
-
-            for index, aoi in enumerate(aois_list):
-                logging.info(f"Processing AOI #: {index+1}")
-                tiles_gdf, num_tiles, num_captures = searcher.search_archive(aoi, start_date, end_date)
-
-                if num_tiles >0:
-                    # We want to save the tiles into their respective captures to then animate them.
-                    logging.warning(f"Total Captures: {num_captures}, Total Tiles: {num_tiles}.")
-
-                    # Save tiles into a directory for this job with.
-                    searcher.save_tiles(tiles_gdf) # tiles_gdf is stored inside searcher after search.
-
-            # logging.warning("Tile Download Complete!")
-            continue
-        elif user_choice == '5': # Create Heatmap for Stack Depth
-            logging.warning("Create Heatmap Of Depth Of Stack.")
+            output_dir = None
+            spotlite.download_tiles(points, width, start_date, end_date, output_dir)
+        elif user_choice == '7': # Run Subscription Monitor.
+            spotlite.monitor_subscriptions_for_captures()
+        elif user_choice == '8': # Dump capture footprints for AOI and time range
             # Open the file dialog to select the GeoJSON file
-            logging.warning("Provide geojson polygon file.")
-            root = tk.Tk()
-            root.withdraw()
-            geojson_filepath = filedialog.askopenfilename(title="Select GeoJSON file",
-                                                        filetypes=[("GeoJSON files", "*.geojson")])
-            if geojson_filepath:
-                logging.info(f"GeoJSON file selected: {geojson_filepath}")
-                tiles_gdf = gpd.read_file(geojson_filepath)
-                heatmap_aoi = tiles_gdf.iloc[0].geometry.__geo_interface__
-            else:
-                logging.warning("No geojson file!")
-                break
-
-            # Format the dates to string (YYYY-MM-DD)
-            # Get the current date and calculate the date one month prior
-            now = datetime.utcnow()
-            one_month_ago = now - relativedelta(months=1)
-            end_date_str = now.strftime('%Y-%m-%d')
-            one_month_ago_str = one_month_ago.strftime('%Y-%m-%d')
-            search_start_date = input("Enter start date (YYYY-MM-DD) or press enter for 1 month ago: ") or one_month_ago_str
-            search_end_date = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
-            logging.warning(f"Date Range For Search: {search_start_date} - {search_end_date}")
-
-            tiles_gdf, num_tiles, num_captures = searcher.search_archive(heatmap_aoi, search_start_date, search_end_date)
-
-            logging.warning(f"Search complete! Num Tiles: {num_tiles}, Num Captures: {num_captures}")
-            if num_tiles > 0:
-                # Create the heatmap for the data.
-                hmap = visualizer.count_heatmap(tiles_gdf)
-
-                logging.warning(f"Heat Map Complete with Num_Tiles: {num_tiles}, Num_Captures: {num_captures}")
-            else:
-                logging.warning("No tiles found!")
-                continue
-
-        elif user_choice == '3': # Create Cloud Free Tile Basemap - Works but seem like non-sense?
-            logging.warning("Create Cloud Free Tile Basemap.")
-            # Open the file dialog to select the GeoJSON file
-            logging.warning("Provide geojson polygon file.")
-            root = tk.Tk()
-            root.withdraw()
-            geojson_filepath = filedialog.askopenfilename(title="Select GeoJSON file",
-                                                        filetypes=[("GeoJSON files", "*.geojson")])
-            if geojson_filepath:
-                logging.info(f"GeoJSON file selected: {geojson_filepath}")
-                tiles_gdf = gpd.read_file(geojson_filepath)
-                heatmap_aoi = tiles_gdf.iloc[0].geometry.__geo_interface__
-            else:
-                logging.warning("No geojson file!")
-                break
-
-            # Format the dates to string (YYYY-MM-DD)
-            # Get the current date and calculate the date one month prior
-            now = datetime.utcnow()
-            one_month_ago = now - relativedelta(months=1)
-            end_date_str = now.strftime('%Y-%m-%d')
-            one_month_ago_str = one_month_ago.strftime('%Y-%m-%d')
-            search_start_date = input("Enter start date (YYYY-MM-DD) or press enter for 1 month ago: ") or one_month_ago_str
-            search_end_date = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
-            logging.warning(f"Date Range For Search: {search_start_date} - {search_end_date}")
-
-            # Search The Archive
-            tiles_gdf, num_tiles, num_captures = searcher.search_archive(heatmap_aoi, search_start_date, search_end_date)
-
-            logging.warning(f"Search complete! Num Tiles: {num_tiles}, Num Captures: {num_captures}")
-
-            if num_tiles > 0:
-                latest_cloud_free_tiles = visualizer.filter_and_sort_tiles(tiles_gdf)
-
-                folium_basemap = visualizer.create_folium_basemap(latest_cloud_free_tiles)
-
-                now = datetime.now().strftime("%Y-%m-%dT%H%M%SZ")
-                filename = f'maps/Basemap_{now}.html'
-                folium_basemap.save(filename)
-                webbrowser.open(filename)
-
-                logging.warning(f"Basemap Created With Latest Cloud Free Tiles.")
-            else:
-                logging.warning("No tiles found!")
-                continue
-
-            continue
-        elif user_choice == '6': # Create for heat map for cloud cover for latest tiles.
-            # Open the file dialog to select the GeoJSON file
-            print("Provide geojson polygon file.")
+            print("Provide search geojson polygon file.")
             root = tk.Tk()
             root.withdraw()
             geojson_filepath = filedialog.askopenfilename(title="Select GeoJSON file",
@@ -441,7 +291,7 @@ def main():
             if geojson_filepath:
                 logging.info(f"GeoJSON file selected: {geojson_filepath}")
                 input_gdf = gpd.read_file(geojson_filepath)
-                heatmap_aoi = input_gdf.iloc[0].geometry.__geo_interface__
+                search_aoi = input_gdf.iloc[0].geometry.__geo_interface__
             else:
                 logging.warning("No geojson file!")
                 break
@@ -452,21 +302,83 @@ def main():
             one_month_ago = now - relativedelta(months=1)
             end_date_str = now.strftime('%Y-%m-%d')
             one_month_ago_str = one_month_ago.strftime('%Y-%m-%d')
-            search_start_date = input("Enter start date (YYYY-MM-DD) or press enter for 1 month ago: ") or one_month_ago_str
-            search_end_date = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
-            logging.warning(f"Date Range For Search: {search_start_date} - {search_end_date}")
+            search_start_date_str = input("Enter start date (YYYY-MM-DD, UTC) or press enter for 1 month ago: ") or one_month_ago_str
+            search_end_date_str = input("Enter end date (YYYY-MM-DD, UTC or press enter for now: ") or end_date_str
 
-            tiles_gdf, num_tiles, num_captures = searcher.search_archive(heatmap_aoi, search_start_date, search_end_date)
-            logging.warning(f"Search complete! Num Tiles: {num_tiles}, Num Captures: {num_captures}")
-
-            if num_tiles > 0:
-                fig_obj = visualizer.cloud_heatmap(tiles_gdf)
-
-                logging.warning("Heat Map Complete And Saved To Maps Folder...")
-            else:
-                logging.warning("No Tiles Found.")
-                continue
+            spotlite.save_footprints(search_aoi, search_start_date_str, search_end_date_str)
+            
             continue
+        elif user_choice == '9': # Manage Taskings.
+            while True:
+                print("Manage Taskings:")
+                print("1. Create New Tasking Via API") 
+                print("2. Check Status For TaskID ") 
+                print("3. Cancel Task For TaskID") 
+                print("4. Query and Download Image For ScenesetID") 
+                print("5. Check Client Config.") 
+                print("6. Search Products By Status.") 
+                print("7. Check Available Product List.") 
+                print("8. List Captures For TaskID.") 
+                print("9. Monitor Taskings For Delivery.")
+                print("q. Back to main menu.")
+                sub_choice = input("Enter your choice: ")
+
+                if sub_choice == '1':  # Create new tasking via API
+
+                    task_params = gather_task_inputs()
+
+                    tasking_df = spotlite.tasking_manager.create_new_tasking(task_params)
+                    print(f"Tasking Result: {tasking_df}")
+                    continue
+                elif sub_choice == '2': # Check status of task
+                    task_id = input("Enter Task Id: ")
+                    print(f"Status: {spotlite.tasking_manager.task_status(task_id)}")
+                    continue
+                elif sub_choice == '3': # cancel_task
+                    task_id = input("Enter Task Id: ")
+                    print(f"Status: {spotlite.tasking_manager.cancel_task(task_id)}")
+                    continue
+                elif sub_choice == '4': # query_and_download_image
+                    scene_set_id = input("Enter SceneSetID?: ")
+                    download_dir = input("Target Relative Download Directory? (images):") or None
+                    print(f"Downloaded Image Filename: {spotlite.tasking_manager.download_image(scene_set_id, download_dir)}")
+                    continue
+                elif sub_choice == '5': # Check Client Config
+                    print(f"Client Config: {spotlite.tasking_manager.check_account_config()}")
+                elif sub_choice == '6': # Search products by status.
+                    status = input("Provide Status To Query [ALL]: ") or ""
+                    df = spotlite.tasking_manager.query_tasks_by_status(status)
+                    pd.set_option('display.max_rows', None)  # Show all rows
+                    pd.set_option('display.max_columns', None)  # Show all columns
+                    pd.set_option('display.width', None)  # Auto-detect the display width
+
+                    print(f"Product Columns: {df.columns}")
+                    print(f"Products Result: {df}")
+                elif sub_choice == '7': # Check available products list.
+                    df = spotlite.tasking_manager.query_available_tasking_products()
+                    print(f"Availble Products: \n{df}")
+                elif sub_choice == '8': # Check captures for task_id
+                    task_id = input("Provide task_id: ")
+                    if task_id:
+                        response_json = spotlite.tasking_manager.capture_list(task_id)
+                        if response_json is not None and 'capture_id' in response_json.columns:
+                            for idx, row in response_json.iterrows():
+                                print(f"Capture ID: {row['capture_id']}, Start: {row['start']}, Satellite: {row['satellite_name']}, Status: {row['status']}")
+                        else:
+                            print("No results found or error in API call.")
+                    continue
+                elif sub_choice == '9': # Run a monitor service to track when ordered imagery arrives and send an email to the user.
+                    # This runs as a service until it fails or is cancelled.
+                    check_interval_min = (input(f"How many minutes between checks? [10min]: ")) or 10
+                    check_interval_sec = check_interval_min
+                    spotlite.tasking_manager.monitor_task_status(check_interval_sec)
+                    continue
+                elif sub_choice == 'q': # Return to main menu
+                    break
+                else:
+                    print("Invalid Choice.")
+                    continue
+        
         elif user_choice == 'q': # Q for quit
             print("Exiting. Goodbye!")
             break

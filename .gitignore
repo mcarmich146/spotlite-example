@@ -34,7 +34,6 @@ docs/html/
 
 # Input-Output Files
 *.json
-*.geojson
 *.html
 *.HTML
 *.TIFF
