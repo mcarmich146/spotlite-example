@@ -96,24 +96,6 @@ Place at root dir and replace the KEY_ID and KEY_SECRET with your credentials ob
 
 ```bash
 # Define your configurations here, for example:
-INTERNAL_STAC_API_URL = "GetFromSatellogic"
-STAC_API_URL = "https://api.satellogic.com/archive/stac"
-SUBSCRIPTIONS_FILE_PATH = 'databases/subscriptions.geojson'
-SUBC_MON_FREQUENCY = 120 # Minutes between subscription monitor runs.
-MAP_UPDATE_FREQUENCY = 360 # Minutes between updates aka 24 hours.
-CLOUD_THRESHOLD = 30 # Will reject captures with 20% or more CC when animating.
-PERIOD_BETWEEN_FRAMES = 3 #seconds between animation frames
-EMAIL_PASSWORD = ""
-EMAIL_ADDRESS = ""
 KEY_ID = "GetFromSatellogic"
 KEY_SECRET = "GetFromSatellogic"
-MIN_PRODUCT_VERSION = "1.0.0" # Min required product version.
-MIN_TILE_COVERAGE_PERCENT = 0.01 # Min percent of tile coverage 0.6 = 60% - FYI if you use 1 width a lot of images will be skipped.
-VALID_PIXEL_PERCENT_FOR_BASEMAP = 100 # This is used for making basemaps, checks that tiles have full coverage otherwise drops them from the basemap.
-MONITORING_POINTS_FILE_PATH = "points_to_monitor/points_file.geojson" # A geojson file containing files to include in systematic monitoring.
-POLYGON_FILES_PATH = "points_to_monitor/age_count_polygons_file.geojson" # A geojson file containing polygons of AOIs to update age count graphics.
-DEFAULT_BOUNDING_BOX_WIDTH = 3 # Default width of bounding box in km.
-DAYS_TO_SEACH_FOR_BEFORE_IMAGERY = 60 # Days to search for historical imagery for the Indications and Warnings app.
-IS_INTERNAL_TO_SATL = False # If True then use the behind the filewall connection -SATL only-, otherwise use credentials.
-FONT_PATH = '' # Optional, download custom fonts and place them in fonts/<font_name>.ttf path ... https://fonts.google.com/
 ```

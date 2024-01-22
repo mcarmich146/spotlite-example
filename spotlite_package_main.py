@@ -278,7 +278,9 @@ def main():
             output_dir = None
             spotlite.download_tiles(points, width, start_date, end_date, output_dir)
         elif user_choice == '7': # Run Subscription Monitor.
-            spotlite.monitor_subscriptions_for_captures()
+            period = input("Enter Minutes Between Monitoring Runs [Return for Default]: ") or "240"
+            period_int = int(period)
+            spotlite.monitor_subscriptions_for_captures(period_int)
         elif user_choice == '8': # Dump capture footprints for AOI and time range
             # Open the file dialog to select the GeoJSON file
             print("Provide search geojson polygon file.")
