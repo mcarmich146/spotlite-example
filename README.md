@@ -22,16 +22,16 @@ The main functions provided in the spotlite_main.py are captured below.
 The menus are:
 
 Options:
-    1. Search And Animate Site.
-    2. Create Cloud Free Basemap.
-    3. Create Heatmap Of Collection Age.
-    4. Create Heatmap Of Imagery Depth.
-    5. Create Heatmap Of Cloud Cover.
-    6. Download Tiles For BBox.
-    7. Run Subscription Monitor.
-    8. Dump Footprints.
-    8. Satellite Tasking Menu.
-    q. For Quit...
+1. Search And Animate Site.
+2. Create Cloud Free Basemap.
+3. Create Heatmap Of Collection Age.
+4. Create Heatmap Of Imagery Depth.
+5. Create Heatmap Of Cloud Cover.
+6. Download Tiles For BBox.
+7. Run Subscription Monitor.
+8. Dump Footprints.
+8. Satellite Tasking Menu.
+q. For Quit...
 
 ## INSTALLATION
 
