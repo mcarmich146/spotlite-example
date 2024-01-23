@@ -96,9 +96,10 @@ def main():
         print("4. Create Heatmap Of Imagery Depth.")
         print("5. Create Heatmap Of Cloud Cover.")
         print("6. Download Tiles For BBox.")
-        print("7. Run Subscription Monitor.")
-        print("8. Dump Footprints.")
-        print("9. Satellite Tasking Menu.")
+        print("7. Download Specific Image Id (Outcome_Id)")
+        print("8. Run Subscription Monitor.")
+        print("9. Dump Footprints.")
+        print("10. Satellite Tasking Menu.")
         print("q. For Quit...")
 
         user_choice = input("Enter your choice: ")
@@ -277,11 +278,23 @@ def main():
 
             output_dir = None
             spotlite.download_tiles(points, width, start_date, end_date, output_dir)
-        elif user_choice == '7': # Run Subscription Monitor.
+
+        elif user_choice == '7': # Download Tiles For Specific Image Id 
+            outcome_id = input(f"Provide Image Outcome_ID: ") or None
+            output_dir = input("Provide custom output directory. [images/OutcomeId_<outcome_id>_<date>]") or None
+            if outcome_id is None:
+                logging.warning(f"No Image Id (Outcome_ID) Provided.  Sample Format: 28c202d1-291f-47dd-b59f-1e68159f1147--200217")
+            
+            if output_dir is None:
+                output_dir = f"images/OutcomeId_{outcome_id}_{now}"
+            spotlite.download_image(outcome_id, output_dir)
+            continue
+
+        elif user_choice == '8': # Run Subscription Monitor.
             period = input("Enter Minutes Between Monitoring Runs [Return for Default]: ") or "240"
             period_int = int(period)
             spotlite.monitor_subscriptions_for_captures(period_int)
-        elif user_choice == '8': # Dump capture footprints for AOI and time range
+        elif user_choice == '9': # Dump capture footprints for AOI and time range
             # Open the file dialog to select the GeoJSON file
             print("Provide search geojson polygon file.")
             root = tk.Tk()
@@ -308,7 +321,7 @@ def main():
             spotlite.save_footprints(search_aoi, search_start_date_str, search_end_date_str)
             
             continue
-        elif user_choice == '9': # Manage Taskings.
+        elif user_choice == '10': # Manage Taskings.
             while True:
                 print("Manage Taskings:")
                 print("1. Create New Tasking Via API") 

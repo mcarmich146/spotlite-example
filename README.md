@@ -28,9 +28,10 @@ Options:
 4. Create Heatmap Of Imagery Depth.
 5. Create Heatmap Of Cloud Cover.
 6. Download Tiles For BBox.
-7. Run Subscription Monitor.
-8. Dump Footprints.
-8. Satellite Tasking Menu.
+7. Download Specific Image.
+8. Run Subscription Monitor.
+9. Dump Footprints.
+10. Satellite Tasking Menu.
 q. For Quit...
 
 ## INSTALLATION
