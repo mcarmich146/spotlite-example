@@ -285,6 +285,8 @@ def main():
             if outcome_id is None:
                 logging.warning(f"No Image Id (Outcome_ID) Provided.  Sample Format: 28c202d1-291f-47dd-b59f-1e68159f1147--200217")
             
+            now = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
+
             if output_dir is None:
                 output_dir = f"images/OutcomeId_{outcome_id}_{now}"
             spotlite.download_image(outcome_id, output_dir)
