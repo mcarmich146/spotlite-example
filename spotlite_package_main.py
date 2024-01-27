@@ -293,9 +293,9 @@ def main():
             continue
 
         elif user_choice == '8': # Run Subscription Monitor.
-            period = input("Enter Minutes Between Monitoring Runs [Return for Default]: ") or "240"
-            period_int = int(period)
-            spotlite.monitor_subscriptions_for_captures(period_int)
+            # period = input("Enter Minutes Between Monitoring Runs [Return for Default]: ") or "240"
+            # period_int = int(period)
+            spotlite.monitor_subscriptions_for_captures()
         elif user_choice == '9': # Dump capture footprints for AOI and time range
             # Open the file dialog to select the GeoJSON file
             print("Provide search geojson polygon file.")
