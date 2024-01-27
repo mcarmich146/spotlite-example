@@ -35,7 +35,84 @@
         "emails": [
           "user@domain.com"
         ],
-        "subscription_name": "Yemen"
+        "subscription_name": "Yemen",
+	"local_processing_time": "06:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "1",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              36.89552135245614,
+              34.83106945188837
+            ],
+            [
+              34.110338528273104,
+              34.83106945188837
+            ],
+            [
+              34.110338528273104,
+              29.399146654549412
+            ],
+            [
+              36.89552135245614,
+              29.399146654549412
+            ],
+            [
+              36.89552135245614,
+              34.83106945188837
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "emails": [
+          "user@domain.com"
+        ],
+        "subscription_name": "Gaza-Lebanon",
+	"local_processing_time": "06:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "1",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              51.19258505054793,
+              43.06286136867138
+            ],
+            [
+              51.19258505054793,
+              60.80090231454133
+            ],
+            [
+              22.44455961154469,
+              60.80090231454133
+            ],
+            [
+              22.44455961154469,
+              43.06286136867138
+            ],
+            [
+              51.19258505054793,
+              43.06286136867138
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "emails": [
+          "user@domain.com"
+        ],
+        "subscription_name": "Ukraine-Russia-Belarus",
+	"local_processing_time": "06:00"
       }
     }
   ]
