@@ -23,6 +23,7 @@ import folium
 from geopy.geocoders import Nominatim
 import re
 from spotlite import Spotlite
+from segment_images import Segmenter
 
 # application imports
 import config
@@ -100,6 +101,7 @@ def main():
         print("8. Run Subscription Monitor.")
         print("9. Dump Footprints.")
         print("10. Satellite Tasking Menu.")
+        print("11. Extract Objects.")
         print("q. For Quit...")
 
         user_choice = input("Enter your choice: ")
@@ -140,8 +142,11 @@ def main():
             end_date = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
             logging.info(f"Date Range For Search: {start_date} - {end_date}")
 
-            save_and_animate = input("Save and Animate (y/n)?: ").lower() or "y" # apply this to every aoi.
+            save_and_animate = input("Save and Animate (y/n)? [n]: ").lower() or "n" # apply this to every aoi.
             spotlite.create_tile_stack_animation(points, width, start_date, end_date, save_and_animate)
+
+            # extract_objects = input("Extract Objects (y/n)? [n]: ").lower() or "n"
+
 
         elif user_choice == '2': # Create Cloud Free Tile Basemap - Works but seem like non-sense?
             logging.warning("Create Cloud Free Tile Basemap.")
@@ -393,7 +398,45 @@ def main():
                 else:
                     print("Invalid Choice.")
                     continue
-        
+
+        elif user_choice == '11': # Extract Objects
+            place = input(f"Enter the place name or lat,lon in dec. deg.: ")
+            lat, lon = get_lat_long_from_place(place)
+            points = [{'lat': lat, 'lon': lon}]
+
+            # Set the Bbox width
+            width = float(input("Provide search box width (km):"))
+
+            # Get the current date and calculate the date one month prior
+            now = datetime.now()
+            one_month_ago = now - relativedelta(months=1)
+
+            # Format the dates to string (YYYY-MM-DD)
+            end_date_str = now.strftime('%Y-%m-%d')
+            one_month_ago_str = one_month_ago.strftime('%Y-%m-%d')
+
+            start_date = input("Enter start date (YYYY-MM-DD) or press enter for 1 month ago: ") or one_month_ago_str
+            end_date = input("Enter end date (YYYY-MM-DD) or press enter for now: ") or end_date_str
+            prompt = input(f"Enter Prompt For Search (short text string): ") or None
+            if prompt is None:
+                logging.error(f"Prompt is invalid: {prompt}")
+                continue
+
+            box_threshold = input("Box_Threshold [0.24]: ?") or 0.24
+            text_threshold = input("Text_Threshold [0.24]: ?") or 0.24
+
+            logging.info(f"Date Range For Search: {start_date} - {end_date}")
+
+            output_dir = None
+            tiles_filename_list = spotlite.download_tiles(points, width, start_date, end_date, output_dir)
+
+            logging.warning(f"tiles_filename_list: {tiles_filename_list}")
+            box_threshold_float = float(box_threshold)
+            text_threshold_float = float(text_threshold)
+            segmenter = Segmenter(box_threshold_float, text_threshold_float)
+            for filename in tiles_filename_list:
+                segmenter.segment_image(filename, prompt)
+
         elif user_choice == 'q': # Q for quit
             print("Exiting. Goodbye!")
             break
