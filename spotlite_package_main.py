@@ -142,7 +142,12 @@ def main():
             logging.info(f"Date Range For Search: {start_date} - {end_date}")
 
             save_and_animate = input("Save and Animate (y/n)? [n]: ").lower() or "n" # apply this to every aoi.
-            spotlite.create_tile_stack_animation(points, width, start_date, end_date, save_and_animate)
+            period_sec = False
+            if save_and_animate == "y":
+                period_input = input("Set period between frames (seconds float):") or "1"
+                period_sec = float(period_input) 
+
+            spotlite.create_tile_stack_animation(points, width, start_date, end_date, save_and_animate, period_sec)
 
             # extract_objects = input("Extract Objects (y/n)? [n]: ").lower() or "n"
 
